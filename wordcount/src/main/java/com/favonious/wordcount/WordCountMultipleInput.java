@@ -1,5 +1,6 @@
 package com.favonious.wordcount;
 
+import com.hadoop.compression.lzo.LzopCodec;
 import com.hadoop.mapreduce.LzoTextInputFormat;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -15,36 +16,32 @@ import org.apache.hadoop.util.ToolRunner;
 /**
  * Created by liushiwei on 2017/8/11.
  */
-public class WordCount extends Configured implements Tool {
+public class WordCountMultipleInput extends Configured implements Tool {
     public static void main(String[] args) throws Exception {
-        System.exit(ToolRunner.run(new WordCount(), args));
+        System.exit(ToolRunner.run(new WordCountMultipleInput(), args));
 
     }
 
     @Override
     public int run(String[] args) throws Exception {
         Configuration conf = new Configuration();
-        /* important */
-//        conf.set("io.compression.codecs", LzoCodec.class.getName());
-
 
         Job job = Job.getInstance(conf, "wordcount");
-        job.setJarByClass(WordCount.class);
-
+        job.setJarByClass(WordCountMultipleInput.class);
         job.setMapperClass(WordCountMapper.class);
         job.setReducerClass(WordCountReducer.class);
-
-        job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
-
         job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(Text.class);
 
-        /* input setting */
-        job.setInputFormatClass(KeyValueTextInputFormat.class);
-//        KeyValueTextInputFormat.addInputPath(job, new Path(args[1]));
+        /* multiple input setting */
         job.setInputFormatClass(LzoTextInputFormat.class);
-        MultipleInputs.addInputPath(job,new Path(args[0]), KeyValueTextInputFormat.class,WordCountMapper.class);
+        job.setInputFormatClass(KeyValueTextInputFormat.class);
+        MultipleInputs.addInputPath(job, new Path(args[0]), KeyValueTextInputFormat.class);
+        MultipleInputs.addInputPath(job, new Path(args[1]), KeyValueTextInputFormat.class);
+
+        /* output compressor setting: output .lzo files */
+        FileOutputFormat.setCompressOutput(job, true);
+        FileOutputFormat.setOutputCompressorClass(job, LzopCodec.class);
         FileOutputFormat.setOutputPath(job, new Path(args[2]));
 
         return job.waitForCompletion(true) ? 0 : 1;
